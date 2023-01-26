@@ -2,6 +2,7 @@ package org.bibernate;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import testclasses.CustomAutowiredClass;
 import testclasses.CustomInterface;
 import testclasses.ExampleOne;
 import testclasses.ExampleTwo;
@@ -46,6 +47,12 @@ public class ContextTest {
     void findAllBeansByTypeTest() {
         var map = context.getAllBeans(CustomInterface.class);
         assertEquals(2, map.size());
+    }
+
+    @Test
+    void beanWithAutowireDependencyTest() {
+        var autowiredBean = context.getBean("autowiredBean", CustomAutowiredClass.class);
+        assertNotNull(autowiredBean.customClassForAutowire);
     }
 
 }
