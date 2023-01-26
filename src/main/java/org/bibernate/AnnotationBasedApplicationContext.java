@@ -39,13 +39,42 @@ public class AnnotationBasedApplicationContext implements ApplicationContext {
                         + " instance: " + e.getMessage());
             }
         }
+        setupDependenciesViaAutowire();
+    }
+
+    private void setupDependenciesViaAutowire() {
+        for (var entry : context.entrySet()) {
+            var beanClass = entry.getValue().getObjectClass();
+            var beanObject = entry.getValue().getClassInstance();
+            var fields = beanClass.getDeclaredFields();
+            for (var field : fields) {
+                if (field.isAnnotationPresent(Autowire.class)) {
+                    var beanName = field.getAnnotation(Autowire.class).value();
+                    if(beanName.isEmpty()) beanName = transformToCamelCase(field.getType().getSimpleName());
+                    if (!context.containsKey(beanName)) throw new NoSuchBeanException("Can't find bean for autowiring with name: " + beanName);
+                    var beanForInjection = context.get(beanName).getClassInstance();
+                    field.setAccessible(true);
+                    try {
+                        field.set(beanObject, beanForInjection);
+                    } catch (IllegalAccessException e) {
+                        throw new ConfigurationException("Can't setup a field: " + field.getName()
+                                + "of Class: " + beanClass.getSimpleName()
+                                + " More error details: " + e.getMessage());
+                    }
+                }
+            }
+        }
     }
 
     String extractBeanName(Class<?> clazz) {
         var beanName = clazz.getAnnotation(Bean.class).value();
         var className = clazz.getSimpleName();
-        if (beanName.isEmpty()) beanName = Character.toLowerCase(className.charAt(0)) + className.substring(1);
+        if (beanName.isEmpty()) beanName = transformToCamelCase(className);
         return beanName;
+    }
+
+    private String transformToCamelCase(String className) {
+        return Character.toLowerCase(className.charAt(0)) + className.substring(1);
     }
 
     @Override
@@ -84,6 +113,5 @@ public class AnnotationBasedApplicationContext implements ApplicationContext {
 
     private <T> Predicate<Map.Entry<String, ContextEntry>> beanTypeFilterPredicate(Class<T> beanType) {
         return entry -> beanType.isAssignableFrom(entry.getValue().getObjectClass());
-//        return entry -> entry.getValue().getObjectClass().equals(beanType);
     }
 }
